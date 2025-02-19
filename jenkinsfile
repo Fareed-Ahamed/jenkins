@@ -1,0 +1,65 @@
+pipeline {
+    agent any
+
+    environment {
+        AWS_ACCESS_KEY_ID     = credentials('AWS Jenkins').USR
+        AWS_SECRET_ACCESS_KEY = credentials('AWS Jenkins').PSW
+    }
+
+    parameters {
+        string(name: 'ENV', defaultValue: 'dev', description: 'Target Environment (dev/stage/prod)')
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+
+        stage('Terraform Init') {
+            steps {
+                sh 'terraform init'
+            }
+        }
+
+        stage('Terraform Plan') {
+            steps {
+                sh "terraform plan -var-file=terraform.tfvars -var=\"env=${params.ENV}\""
+            }
+        }
+
+        stage('Approval Stage') {
+            when {
+                expression { params.ENV in ['stage', 'prod'] && env.BRANCH_NAME == 'master' }
+            }
+            steps {
+                input message: "Deploy to ${params.ENV}?", ok: 'Proceed'
+            }
+        }
+
+        stage('Terraform Apply') {
+            when {
+                allOf {
+                    expression { env.BRANCH_NAME == 'master' }
+                    anyOf {
+                        expression { params.ENV == 'dev' }
+                        expression { currentBuild.inputApproved }
+                    }
+                }
+            }
+            steps {
+                sh "terraform apply -auto-approve -var-file=terraform.tfvars -var=\"env=${params.ENV}\""
+            }
+        }
+    }
+
+    post {
+        success {
+            echo "Terraform pipeline completed successfully for ${params.ENV}"
+        }
+        failure {
+            echo "Pipeline failed!"
+        }
+    }
+}
