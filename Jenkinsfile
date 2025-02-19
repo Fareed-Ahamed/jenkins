@@ -40,7 +40,7 @@ pipeline {
             when {
                 allOf {
                     expression { env.BRANCH_NAME == 'main' }
-                    anyOf { expression { params.ENV == 'dev','stage', 'prod' }; }
+                    anyOf { expression { params.ENV in ['dev', 'stage', 'prod'] }; }
                 }
             }
             steps {
@@ -56,7 +56,7 @@ pipeline {
             when {
                 allOf {
                     expression { env.BRANCH_NAME == 'main' }
-                    expression { params.ENV == 'dev' }
+                    expression { params.ENV in ['dev', 'stage', 'prod'] }
                 }
             }
             steps {
@@ -68,7 +68,7 @@ pipeline {
             when {
                 allOf {
                     expression { env.BRANCH_NAME == 'main' }
-                    expression { params.ENV == 'dev' }
+                    expression { params.ENV in ['dev', 'stage', 'prod'] }
                 }
             }
             steps {
