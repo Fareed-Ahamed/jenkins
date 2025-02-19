@@ -40,7 +40,7 @@ pipeline {
             when {
                 allOf {
                     expression { env.BRANCH_NAME == 'main' }
-                    anyOf { expression { params.ENV == 'dev' }; expression { currentBuild.inputApproved } }
+                    anyOf { expression { params.ENV == 'dev','stage', 'prod' }; }
                 }
             }
             steps {
