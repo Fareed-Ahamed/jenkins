@@ -34,7 +34,7 @@ pipeline {
 
         stage('Approval Stage') {
             when {
-                expression { params.ENV in ['stage', 'prod'] && env.BRANCH_NAME == 'master' }
+                expression { params.ENV in ['stage', 'prod'] && env.BRANCH_NAME == 'main' }
             }
             steps {
                 input message: "Proceed to apply Terraform changes to ${params.ENV}?", ok: 'Deploy'
@@ -44,7 +44,7 @@ pipeline {
         stage('Terraform Apply') {
             when {
                 allOf {
-                    expression { env.BRANCH_NAME == 'master' }
+                    expression { env.BRANCH_NAME == 'main' }
                     anyOf { expression { params.ENV == 'dev' }; expression { currentBuild.inputApproved } }
                 }
             }
@@ -60,7 +60,7 @@ pipeline {
         stage('Docker Build') {
             when {
                 allOf {
-                    expression { env.BRANCH_NAME == 'master' }
+                    expression { env.BRANCH_NAME == 'main' }
                     expression { params.ENV == 'dev' }
                 }
             }
@@ -72,7 +72,7 @@ pipeline {
         stage('Docker Push to DockerHub') {
             when {
                 allOf {
-                    expression { env.BRANCH_NAME == 'master' }
+                    expression { env.BRANCH_NAME == 'main' }
                     expression { params.ENV == 'dev' }
                 }
             }
