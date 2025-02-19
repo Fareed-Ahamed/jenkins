@@ -1,12 +1,6 @@
 pipeline {
     agent any
 
-    environment {
-        AWS_ACCESS_KEY_ID     = credentials('AWS Jenkins').USR
-        AWS_SECRET_ACCESS_KEY = credentials('AWS Jenkins').PSW
-        DOCKERHUB_CREDENTIALS = credentials('dockerhub-creds')
-    }
-
     parameters {
         string(name: 'ENV', defaultValue: 'dev', description: 'Target Environment (dev/stage/prod)')
     }
@@ -20,16 +14,20 @@ pipeline {
 
         stage('Terraform Init') {
             steps {
-                dir('terraform-infra') {
-                    sh 'terraform init'
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'AWS Jenkins']]) {
+                    dir('terraform-infra') {
+                        sh 'terraform init'
+                    }
                 }
             }
         }
 
         stage('Terraform Plan') {
             steps {
-                dir('terraform-infra') {
-                    sh "terraform plan -var='env=${params.ENV}'"
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'AWS Jenkins']]) {
+                    dir('terraform-infra') {
+                        sh "terraform plan -var='env=${params.ENV}'"
+                    }
                 }
             }
         }
@@ -39,7 +37,7 @@ pipeline {
                 expression { params.ENV in ['stage', 'prod'] && env.BRANCH_NAME == 'master' }
             }
             steps {
-                input message: "Deploy to ${params.ENV}?", ok: 'Proceed'
+                input message: "Proceed to apply Terraform changes to ${params.ENV}?", ok: 'Deploy'
             }
         }
 
@@ -51,8 +49,10 @@ pipeline {
                 }
             }
             steps {
-                dir('terraform-infra') {
-                    sh "terraform apply -auto-approve -var='env=${params.ENV}'"
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'AWS Jenkins']]) {
+                    dir('terraform-infra') {
+                        sh "terraform apply -auto-approve -var='env=${params.ENV}'"
+                    }
                 }
             }
         }
@@ -69,7 +69,7 @@ pipeline {
             }
         }
 
-        stage('Docker Push') {
+        stage('Docker Push to DockerHub') {
             when {
                 allOf {
                     expression { env.BRANCH_NAME == 'master' }
@@ -77,9 +77,11 @@ pipeline {
                 }
             }
             steps {
-                sh 'echo $DOCKERHUB_CREDENTIALS_PSW | docker login -u $DOCKERHUB_CREDENTIALS_USR --password-stdin'
-                sh 'docker tag myapp:latest yourdockerhubusername/myapp:latest'
-                sh 'docker push yourdockerhubusername/myapp:latest'
+                withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                    sh 'echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin'
+                    sh 'docker tag myapp:latest yourdockerhubusername/myapp:latest'
+                    sh 'docker push yourdockerhubusername/myapp:latest'
+                }
             }
         }
     }
